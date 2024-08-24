@@ -2,6 +2,7 @@
   "files.associations": {
     "stdlib.h": "c",
     "in.h": "c",
-    "netdb.h": "c"
+    "netdb.h": "c",
+    "string.h": "c"
   }
 }
