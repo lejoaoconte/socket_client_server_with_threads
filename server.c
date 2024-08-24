@@ -10,12 +10,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+// Define the server port
 #define SERVPORT 3333
+// Define the maximum data size
 #define BACKLOG 10
-#define MAX_CONNECTED_NO 10
+// Define the maximum data size
 #define MAXDATASIZE (5 * 1024)
 
-// Function process_client_thread prototypes
+// Function to process the client's request
 void *process_client_thread(void *);
 
 int main() {
@@ -32,7 +34,7 @@ int main() {
 
     int on;
     on = 1;
-    // Set the socket options
+    // Set the socket option
     setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
 
     server_sockaddr.sin_family = AF_INET;
@@ -47,14 +49,13 @@ int main() {
         exit(1);
     }
 
-    // Listen for incoming connections
+    // Listen for connections
     if (listen(sockfd, BACKLOG) == -1) {
         perror("listen:");
         exit(1);
     }
     printf("Start listen..... \n");
 
-    // Accept incoming connections
     while (1) {
         int client_fd;
         sin_size = sizeof(struct sockaddr);
@@ -62,21 +63,21 @@ int main() {
         int len = sizeof(peeraddr);
         char server_ip[20];
 
-        // Accept the connection from the client
+        // Accept a connection
         if ((client_fd = accept(sockfd, (struct sockaddr *)&client_sockaddr,
                                 &sin_size)) == -1) {
             perror("accept:");
             continue;
         }
-        // Print the client address and port number
         printf("accept socket..... Client address: %s Port: %d\n",
                inet_ntoa(client_sockaddr.sin_addr),
                ntohs(client_sockaddr.sin_port));
+        // Get the server's IP address
         getsockname(client_fd, (struct sockaddr *)&peeraddr, &len);
         inet_ntop(AF_INET, &peeraddr.sin_addr, server_ip, sizeof(server_ip));
         printf("accept socket..... Server address: %s \n", server_ip);
 
-        // Create a thread to process the client request
+        // Create a thread to process the client's request
         if (pthread_create(&thread_id, NULL, process_client_thread,
                            &client_fd) != 0) {
             perror("pthread_create:");
@@ -86,18 +87,17 @@ int main() {
         // Detach the thread
         pthread_detach(thread_id);
     }
+    // Close the socket
     close(sockfd);
 }
 
-// Function to process client requests
 void *process_client_thread(void *arg) {
     int client_fd = *(int *)arg;
     char buf[MAXDATASIZE];
     int recvbytes, sendbytes;
 
-    // Process the client request
     while (1) {
-        // Clear the buffer
+        // Clear the buffer before use
         memset(buf, 0, MAXDATASIZE);
 
         // Receive the file name from the client
@@ -107,35 +107,35 @@ void *process_client_thread(void *arg) {
             pthread_exit(NULL);
         }
 
-        // Check if the client requested to end the connection
+        // Check if the client wants to end the connection
         if (strcmp(buf, "fim") == 0) {
             printf("Client requested to end the connection.\n");
             close(client_fd);
             pthread_exit(NULL);
         }
 
-        // Check if the file exists
+        // Print the file name received from the client
         printf("Received file request: %s\n", buf);
 
-        // Open the file to send the data to the client
-        FILE *file = fopen(buf, "rb");
+        // Open the file
+        FILE *file = fopen(buf, "r");
         // Check if the file exists
         if (file == NULL) {
             perror("fopen:");
             printf("File %s not found.\n", buf);
-            // Send the file not found message to the client
             int file_not_found = 0;
             send(client_fd, &file_not_found, sizeof(file_not_found), 0);
             continue;
         }
 
-        // Send the file found message to the client
-        int file_found = 1;
-        send(client_fd, &file_found, sizeof(file_found), 0);
+        // Send the file to the client
+        int file_exists = 1;
+        // Send a message to the client indicating that the file exists
+        send(client_fd, &file_exists, sizeof(file_exists), 0);
 
         // Send the file data to the client
         while ((recvbytes = fread(buf, 1, MAXDATASIZE, file)) > 0) {
-            // Send the file data to the client
+            // Send the file data
             if ((sendbytes = send(client_fd, buf, recvbytes, 0)) == -1) {
                 perror("send:");
                 close(client_fd);
@@ -148,14 +148,12 @@ void *process_client_thread(void *arg) {
 
         // Close the file
         fclose(file);
+        // Print a message indicating that the file transfer is complete
         printf("File transfer completed.\n");
-
-        // Send "done" marker to indicate the end of the file transfer as a
-        // separate message
-        strcpy(buf, "done");
-        send(client_fd, buf, strlen(buf), 0);
     }
 
+    // Close the client socket
     close(client_fd);
+    // Exit the thread
     pthread_exit(NULL);
 }
