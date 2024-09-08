@@ -1,6 +1,2 @@
-Atividade_de_Redes_de_Computadores.pdf
-client
-server
-thread
-test.txt
-./test_client/test.txt
+client/client
+server/server
